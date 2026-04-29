@@ -81,7 +81,7 @@ export function ImportDialog({ onImportComplete }: ImportDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button size="sm" className="bg-sky-500 hover:bg-sky-600 text-white border-0 shadow-sm transition-colors">
           <Upload className="mr-2 h-4 w-4" />
           Importar Excel
         </Button>

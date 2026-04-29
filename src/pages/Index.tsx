@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Search, Package } from 'lucide-react';
+import { Search, Package, Mic } from 'lucide-react';
+import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ImportDialog } from '@/components/ImportDialog';
+import { CloudSyncDialog } from '@/components/CloudSyncDialog';
 import { ProductCard } from '@/components/ProductCard';
 import { searchProducts, getProductCount } from '@/lib/db';
 import { Product } from '@/types/product';
@@ -14,6 +15,7 @@ const Index = () => {
   const [searching, setSearching] = useState(false);
   const [productCount, setProductCount] = useState(0);
   const [hasSearched, setHasSearched] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   useEffect(() => {
     loadProductCount();
@@ -44,6 +46,83 @@ const Index = () => {
     }
   };
 
+  const handleVoiceSearch = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Tu navegador no soporta búsqueda por voz");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-AR';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      toast.info("Escuchando...", { icon: "🎤" });
+    };
+
+    recognition.onresult = async (event: any) => {
+      const transcript = event.results[0][0].transcript.toLowerCase();
+      setDescripcion(transcript);
+      
+      setSearching(true);
+      setHasSearched(true);
+      try {
+        const allProducts = await searchProducts('', '');
+        const words = transcript.split(' ').filter((w: string) => w.length > 3 && !['donde', 'estan', 'charly', 'como'].includes(w));
+        
+        let finalResults = allProducts.filter(p => 
+          transcript.includes(p.descripcion.toLowerCase()) ||
+          words.some(w => p.descripcion.toLowerCase().includes(w))
+        );
+
+        setResults(finalResults);
+
+        if (finalResults.length > 0) {
+           const locs = Array.from(new Set(finalResults.map(r => {
+             const match = r.ubicacion.match(/Dep\s*([A-Za-z0-9]+)\s*-\s*(\d+)\s*-\s*(\d+)/i);
+             if (match) {
+               return `Depósito ${match[1]}, estantería ${match[2]}, fila ${match[3]}`;
+             }
+             return r.ubicacion;
+           }))).join(" y ");
+           const itemName = finalResults.length === 1 ? finalResults[0].descripcion : "los artículos";
+           const msg = `Encontré ${itemName}. Están en ${locs}`;
+           
+           toast.success(msg);
+           const utterance = new SpeechSynthesisUtterance(msg);
+           utterance.lang = 'es-AR';
+           window.speechSynthesis.speak(utterance);
+        } else {
+           const msg = "No encontré ningún artículo que coincida con tu búsqueda.";
+           toast.error(msg);
+           const utterance = new SpeechSynthesisUtterance(msg);
+           utterance.lang = 'es-AR';
+           window.speechSynthesis.speak(utterance);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setSearching(false);
+        setIsListening(false);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error(event.error);
+      setIsListening(false);
+      toast.error("Error al escuchar. Intenta de nuevo.");
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+  };
+
   const handleImportComplete = () => {
     loadProductCount();
     setResults([]);
@@ -65,7 +144,7 @@ const Index = () => {
                 <p className="text-sm text-primary-foreground/80">Sistema de Gestión de Inventario</p>
               </div>
             </div>
-            <ImportDialog onImportComplete={handleImportComplete} />
+            <CloudSyncDialog onSyncComplete={handleImportComplete} />
           </div>
         </div>
       </header>
@@ -106,15 +185,28 @@ const Index = () => {
                 />
               </div>
 
-              <Button 
-                onClick={handleSearch} 
-                disabled={searching || (!codigo && !descripcion)}
-                className="w-full"
-                size="lg"
-              >
-                <Search className="mr-2 h-5 w-5" />
-                {searching ? 'Buscando...' : 'Buscar'}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleSearch} 
+                  disabled={searching || (!codigo && !descripcion)}
+                  className="flex-1"
+                  size="lg"
+                >
+                  <Search className="mr-2 h-5 w-5" />
+                  {searching ? 'Buscando...' : 'Buscar'}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleVoiceSearch}
+                  disabled={isListening}
+                  variant={isListening ? "destructive" : "outline"}
+                  size="lg"
+                  className="px-4 shrink-0 transition-all duration-300"
+                  title="Búsqueda por voz"
+                >
+                  <Mic className={`h-5 w-5 ${isListening ? "animate-pulse" : ""}`} />
+                </Button>
+              </div>
             </div>
 
             {productCount > 0 && (
