@@ -2,7 +2,7 @@
   "name": "StockMLuján - Sistema de Inventario",
   "short_name": "StockMLuján",
   "description": "Sistema de gestión de inventario para almacén",
-  "start_url": "/",
+  "start_url": "/stock-lens-lujan/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0c4a6e",
