@@ -33,17 +33,18 @@ export async function getDB(): Promise<IDBPDatabase<StockDB>> {
 
 export async function saveProducts(products: Product[]): Promise<void> {
   const db = await getDB();
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-  
-  // Clear existing data
-  await tx.store.clear();
-  
-  // Add new products
+
+  // Limpiar datos existentes en su propia transacción primero
+  const clearTx = db.transaction(STORE_NAME, 'readwrite');
+  await clearTx.store.clear();
+  await clearTx.done;
+
+  // Insertar los nuevos productos con put() (upsert: inserta o reemplaza)
+  const insertTx = db.transaction(STORE_NAME, 'readwrite');
   for (const product of products) {
-    await tx.store.add(product);
+    await insertTx.store.put(product);
   }
-  
-  await tx.done;
+  await insertTx.done;
 }
 
 export async function searchProducts(
