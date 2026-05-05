@@ -47,9 +47,13 @@ export function CloudSyncDialog({ onSyncComplete }: CloudSyncDialogProps) {
     try {
       // Parsear inteligentemente cualquier link de Google Sheets al formato de descarga
       let fetchUrl = sheetUrl;
-      if (sheetUrl.includes('/d/')) {
+      
+      // Si es un enlace publicado en la web (CSV), lo usamos tal cual
+      if (sheetUrl.includes('/pub') || sheetUrl.includes('output=csv')) {
+        fetchUrl = sheetUrl;
+      } else if (sheetUrl.includes('/d/')) {
         const idMatch = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
-        if (idMatch && idMatch[1]) {
+        if (idMatch && idMatch[1] && idMatch[1] !== 'e') {
           fetchUrl = `https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=xlsx`;
         }
       }
