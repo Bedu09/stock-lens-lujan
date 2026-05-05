@@ -71,12 +71,15 @@ const Index = () => {
       setHasSearched(true);
       try {
         const allProducts = await searchProducts('', '');
-        const words = transcript.split(' ').filter((w: string) => w.length > 3 && !['donde', 'estan', 'charly', 'como'].includes(w));
+        // Palabras del transcript de más de 2 letras, excluyendo palabras vacías
+        const stopWords = ['donde', 'estan', 'están', 'charly', 'como', 'hay', 'los', 'las', 'que', 'del', 'una', 'para'];
+        const words = transcript.split(' ').filter((w: string) => w.length > 2 && !stopWords.includes(w));
         
-        let finalResults = allProducts.filter(p => 
-          transcript.includes(p.descripcion.toLowerCase()) ||
-          words.some(w => p.descripcion.toLowerCase().includes(w))
-        );
+        // CORRECTO: verificar que la descripción del producto contenga alguna de las palabras buscadas
+        let finalResults = allProducts.filter(p => {
+          const desc = p.descripcion.toLowerCase();
+          return words.some(w => desc.includes(w));
+        });
 
         setResults(finalResults);
 

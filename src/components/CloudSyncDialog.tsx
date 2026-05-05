@@ -35,12 +35,33 @@ export function CloudSyncDialog({ onSyncComplete }: CloudSyncDialogProps) {
   };
 
   // Parsear CSV texto plano a array de objetos
+  // Parser CSV robusto que respeta el estándar RFC 4180 (campos con comillas y comas internas)
   const parseCSV = (text: string): any[] => {
+    const parseRow = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+          else { inQuotes = !inQuotes; }
+        } else if (char === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+
     const lines = text.trim().split('\n').filter(l => l.trim());
     if (lines.length < 2) return [];
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const headers = parseRow(lines[0]);
     return lines.slice(1).map(line => {
-      const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+      const values = parseRow(line);
       return headers.reduce((obj: any, header, i) => {
         obj[header] = values[i] ?? '';
         return obj;
