@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import * as XLSX from 'xlsx';
 import { saveProducts } from '@/lib/db';
 import { Product } from '@/types/product';
 
@@ -35,6 +34,20 @@ export function CloudSyncDialog({ onSyncComplete }: CloudSyncDialogProps) {
     toast({ title: 'Enlace guardado', description: 'Ya podés sincronizar los datos.' });
   };
 
+  // Parsear CSV texto plano a array de objetos
+  const parseCSV = (text: string): any[] => {
+    const lines = text.trim().split('\n').filter(l => l.trim());
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    return lines.slice(1).map(line => {
+      const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+      return headers.reduce((obj: any, header, i) => {
+        obj[header] = values[i] ?? '';
+        return obj;
+      }, {});
+    });
+  };
+
   const handleSync = async () => {
     if (!sheetUrl) {
       setIsConfiguring(true);
@@ -45,29 +58,44 @@ export function CloudSyncDialog({ onSyncComplete }: CloudSyncDialogProps) {
     toast({ title: 'Sincronizando...', description: 'Descargando base de datos desde la nube.' });
 
     try {
-      // Parsear inteligentemente cualquier link de Google Sheets al formato de descarga
-      let fetchUrl = sheetUrl;
-      
-      // Si es un enlace publicado en la web (CSV), lo usamos tal cual
-      if (sheetUrl.includes('/pub') || sheetUrl.includes('output=csv')) {
-        fetchUrl = sheetUrl;
-      } else if (sheetUrl.includes('/d/')) {
-        const idMatch = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      // Normalizar la URL: si ya es un enlace CSV publicado, usarla tal cual
+      let fetchUrl = sheetUrl.trim();
+      const isCsvLink = fetchUrl.includes('/pub') || fetchUrl.includes('output=csv');
+
+      if (!isCsvLink && fetchUrl.includes('/d/')) {
+        const idMatch = fetchUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
         if (idMatch && idMatch[1] && idMatch[1] !== 'e') {
-          fetchUrl = `https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=xlsx`;
+          fetchUrl = `https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=csv`;
         }
       }
 
-      const response = await fetch(fetchUrl);
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}. Verificá que el enlace sea público (Publicado en la web).`);
+      // Intentar fetch directo, si falla por CORS usar proxy
+      let csvText: string | null = null;
+
+      try {
+        const directResponse = await fetch(fetchUrl);
+        if (directResponse.ok) {
+          csvText = await directResponse.text();
+        }
+      } catch {
+        // Ignorar error de CORS, intentar con proxy
       }
-      
-      const buffer = await response.arrayBuffer();
-      const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+      if (!csvText) {
+        // Fallback: usar proxy CORS público
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fetchUrl)}`;
+        const proxyResponse = await fetch(proxyUrl);
+        if (!proxyResponse.ok) {
+          throw new Error(`Error HTTP: ${proxyResponse.status}. Verificá que el enlace sea público (Publicado en la web).`);
+        }
+        csvText = await proxyResponse.text();
+      }
+
+      if (!csvText || csvText.trim().length === 0) {
+        throw new Error('La hoja de cálculo está vacía o no se pudo leer.');
+      }
+
+      const jsonData = parseCSV(csvText);
 
       const products: Product[] = jsonData.map((row) => ({
         codigo: String(row.codigo || row.Codigo || row.CODIGO || row.Código || row.CÓDIGO || row.ID || '').trim(),
