@@ -58,13 +58,24 @@ export async function searchProducts(
     return allProducts;
   }
 
+  // Escapa caracteres especiales para usar en regex
+  const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Coincidencia por palabras completas: cada palabra del término debe existir
+  // como palabra completa en la descripción (no como substring de otra palabra)
+  const matchesAllWords = (text: string, query: string): boolean => {
+    const words = query.toLowerCase().trim().split(/\s+/).filter(w => w.length > 0);
+    const lowerText = text.toLowerCase();
+    return words.every(word => new RegExp(`(?<![a-záéíóúüñ])${escapeRegex(word)}(?![a-záéíóúüñ])`, 'i').test(lowerText));
+  };
+
   return allProducts.filter((product) => {
     const codigoMatch = searchCodigo
       ? product.codigo.toLowerCase().includes(searchCodigo.toLowerCase())
       : true;
 
     const descripcionMatch = searchDescripcion
-      ? product.descripcion.toLowerCase().includes(searchDescripcion.toLowerCase())
+      ? matchesAllWords(product.descripcion, searchDescripcion)
       : true;
 
     return codigoMatch && descripcionMatch;

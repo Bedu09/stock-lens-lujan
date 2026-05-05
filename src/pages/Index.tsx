@@ -70,16 +70,9 @@ const Index = () => {
       setSearching(true);
       setHasSearched(true);
       try {
-        const allProducts = await searchProducts('', '');
-        // Palabras del transcript de más de 2 letras, excluyendo palabras vacías
-        const stopWords = ['donde', 'estan', 'están', 'charly', 'como', 'hay', 'los', 'las', 'que', 'del', 'una', 'para'];
-        const words = transcript.split(' ').filter((w: string) => w.length > 2 && !stopWords.includes(w));
-        
-        // CORRECTO: verificar que la descripción del producto contenga alguna de las palabras buscadas
-        let finalResults = allProducts.filter(p => {
-          const desc = p.descripcion.toLowerCase();
-          return words.some(w => desc.includes(w));
-        });
+        // Delegamos a searchProducts con el transcript completo.
+        // La función ya usa coincidencia por palabras completas (no substring parcial).
+        let finalResults = await searchProducts('', transcript);
 
         setResults(finalResults);
 
