@@ -78,7 +78,7 @@ const Index = () => {
 
         if (finalResults.length > 0) {
            const locs = Array.from(new Set(finalResults.map(r => {
-             const match = r.ubicacion.match(/Dep\s*([A-Za-z0-9]+)\s*-\s*(\d+)(?:\s*-\s*(\d+))?/i);
+             const match = r.ubicacion.match(/(?:Dep[oó]sito|Dep\.?)\s*([A-Za-z0-9]*[A-Za-z][A-Za-z0-9]*)\s*[-_:]?\s*(\d+)(?:\s*[-_:]?\s*(\d+))?/i);
              if (match) {
                let locStr = `depósito ${match[1]} estantería ${match[2]}`;
                if (match[3]) {
