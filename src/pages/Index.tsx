@@ -78,9 +78,13 @@ const Index = () => {
 
         if (finalResults.length > 0) {
            const locs = Array.from(new Set(finalResults.map(r => {
-             const match = r.ubicacion.match(/Dep\s*([A-Za-z0-9]+)\s*-\s*(\d+)\s*-\s*(\d+)/i);
+             const match = r.ubicacion.match(/Dep\s*([A-Za-z0-9]+)\s*-\s*(\d+)(?:\s*-\s*(\d+))?/i);
              if (match) {
-               return `Depósito ${match[1]}, estantería ${match[2]}, fila ${match[3]}`;
+               let locStr = `depósito ${match[1]} estantería ${match[2]}`;
+               if (match[3]) {
+                 locStr += ` fila ${match[3]}`;
+               }
+               return locStr;
              }
              return r.ubicacion;
            }))).join(" y ");
